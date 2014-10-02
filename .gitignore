@@ -21,7 +21,7 @@
 *.dylib
 
 # Txt File
-.txt
+*.txt
 
 # Executables
 *.exe
