@@ -9,6 +9,7 @@ written for CISC361 (Operating Systems)
 #include <stdlib.h>
 #include <unistd.h>
 #include <fcntl.h>
+#include <signal.h>
 #include <sys/types.h>
 #include <sys/wait.h>
 #include <sys/stat.h>
@@ -21,7 +22,9 @@ static char buffer[BUFFER_MAX_LENGTH];
 static char bufferFirstRun[BUFFER_MAX_LENGTH];
 static char userInput = '\0';
 static char *commandArgv[100];
+static char *commandArgv2[100];
 static int commandArgc = 0;
+static int commandArgc2 = 0;
 int redirects = 0;
 char *newOut;
 char *newIn;
@@ -30,15 +33,33 @@ char toIn[PATH_MAX_LENGTH];
 int redirectIn = 0;
 int redirectOut = 0;
 int bg = 0;
+pid_t pid;
+int jobBg;
+int piped = 0;
 
 /*
-A function to concatenate strings(should be in a header somewhere).
+A function to concatenate strings.
 */
 char* concat(char *s1,char *s2){
     char *result = (char *)malloc(strlen(s1)+strlen(s2)+1);
     strcpy(result,s1);
     strcat(result,s2);
     return result;
+}
+
+void handleSIGINT(int signum)
+{
+    signal(SIGINT,handleSIGINT);
+    printf("Terminated\n:pid:%d:sig:%d\n",pid,SIGINT);
+    fflush(stdout);
+    kill(pid,SIGINT);
+}
+void handleSIGTSTP(int signum)
+{
+    signal(SIGTSTP,handleSIGTSTP);
+    printf("Suspended\n:pid:%d:sig:%d\n",pid,SIGTSTP);
+    fflush(stdout);
+    kill(pid,SIGTSTP);
 }
 
 /*
@@ -71,9 +92,10 @@ int checkIORedirect(char* buffer){
     int numberOfRedirectsOut = 0;
 
     char *bufferPointer;
-    strncpy(bufferFirstRun,buffer,BUFFER_MAX_LENGTH);
+    char buffercpy[BUFFER_MAX_LENGTH];
+    strncpy(buffercpy,buffer,BUFFER_MAX_LENGTH);
 
-    bufferPointer = strtok(bufferFirstRun," \n");
+    bufferPointer = strtok(buffercpy," \n");
     while(bufferPointer != NULL)
         {
             switch(bufferPointer[0])
@@ -83,12 +105,17 @@ int checkIORedirect(char* buffer){
                     redirectIn = 1;
                     strncpy(&toIn[0],bufferPointer,PATH_MAX_LENGTH);
                     numberOfRedirectsIn++;
+                    fflush(stdout);
+                    break;
+
                 }
                 case '>':
                 {
                     redirectOut = 1;
                     strncpy(&toOut[0],bufferPointer,PATH_MAX_LENGTH);
                     numberOfRedirectsOut++;
+                    fflush(stdout);
+                    break;
                 }
             }
         bufferPointer = strtok(NULL," \n");
@@ -132,7 +159,6 @@ char** populateCommand(char** commandArgv,char* buffer)
                     }
                     toOut[strlen(toOutcpy)-1] = '\0';
                     newOut = toOut;
-                    //printf("\nfile: %s\n",newOut);
                     fflush(stdout);
                     break;
                 }
@@ -146,7 +172,6 @@ char** populateCommand(char** commandArgv,char* buffer)
                     }
                     toIn[strlen(toIncpy)-1] = '\0';
                     newIn = toIn;
-                    //printf("\nfile: %s\n",newIn);
                     fflush(stdout);
                     break;
                 }
@@ -181,6 +206,10 @@ int checkBuiltInCommands(char** commandArgv)
     {
         return -1;
     }
+    if(strcmp("resume",commandArgv[0]) == 0)
+    {
+        return 1;
+    }
     return 0;
 }
 
@@ -193,62 +222,107 @@ void handleUserCommands(int redirects,char** commandArgv)
     int check = checkBuiltInCommands(commandArgv);
     if(check == 0)
     {
-        int status;
-        pid_t pid = fork();
-        if(pid == 0)
+        if(bg == 1)
         {
-            if(redirects == 1)
+            int status;
+            pid = fork();
+            jobBg = 1;
+            if(pid == 0)
             {
-                if(redirectOut == 1)
+                if(redirects == 1)
                 {
-
-                    int out = open(newOut,O_WRONLY | O_TRUNC | O_CREAT, S_IRUSR | S_IRGRP | S_IWGRP | S_IWUSR);
-                    dup2(out,STDOUT_FILENO);
-                    close(out);
+                    if(redirectOut == 1)
+                    {
+                        int out = open(newOut,O_WRONLY | O_TRUNC | O_CREAT, S_IRUSR | S_IRGRP | S_IWGRP | S_IWUSR);
+                        dup2(out,STDOUT_FILENO);
+                        close(out);
+                    }
+                    if(redirectIn == 1)
+                    {
+                        int in = open(toIn,O_RDONLY);
+                        dup2(in,STDIN_FILENO);
+                        close(in);
+                    }
+                    setpgid(0,0);
+                    status = execvp(commandArgv[0],commandArgv);
+                    printf("%s : command not found*\n",commandArgv[0]);
+                    exit(0);
                 }
-                if(redirectIn == 1)
+                else if(redirects == -1)
                 {
-                    printf("file to open : %s",toIn);
-                    fflush(stdout);
-                    int in = open(toIn,O_RDONLY);
-                    dup2(in,STDIN_FILENO);
-                    close(in);
+                    printf("shell says : invalid redirects\n");
+                    exit(0);
                 }
-                if(bg == 1)
+                else
                 {
-                    //daemon(0,0);
+                    setpgid(0,0);
+                    status = execvp(commandArgv[0],commandArgv);
+                    printf("%s : command not found*\n",commandArgv[0]);
+                    exit(0);
                 }
-                status = execvp(commandArgv[0],commandArgv);
-                printf("%s : command not found*\n",commandArgv[0]);
-                exit(0);
-            }
-            else if(redirects == -1)
-            {
-                printf("shell says : invalid redirects\n");
-                exit(0);
             }
             else
             {
-                if(bg == 1)
-                {
-                    //daemon(0,0);
-                }
-                status = execvp(commandArgv[0],commandArgv);
-                printf("%s : command not found*\n",commandArgv[0]);
-                //exit(0);
+                return;
             }
         }
         else
         {
-            waitpid(pid,&status,0);
-            if (WIFEXITED(status))
+            int status;
+            pid = fork();
+            jobBg = 1;
+            if(pid == 0)
             {
-                if(WEXITSTATUS(status) != 0)
+                if(redirects == 1)
                 {
-                printf("[ last program returned exit code: %d ] ", WEXITSTATUS(status));
+                    if(redirectOut == 1)
+                    {
+                        int out = open(newOut,O_WRONLY | O_TRUNC | O_CREAT, S_IRUSR | S_IRGRP | S_IWGRP | S_IWUSR);
+                        dup2(out,STDOUT_FILENO);
+                        close(out);
+                    }
+                    if(redirectIn == 1)
+                    {
+                        int in = open(toIn,O_RDONLY);
+                        dup2(in,STDIN_FILENO);
+                        close(in);
+                    }
+                    status = execvp(commandArgv[0],commandArgv);
+                    printf("%s : command not found*\n",commandArgv[0]);
+                    exit(0);
+                }
+                else if(redirects == -1)
+                {
+                    printf("shell says : invalid redirects\n");
+                    exit(0);
+                }
+                else
+                {
+                    status = execvp(commandArgv[0],commandArgv);
+                    printf("%s : command not found*\n",commandArgv[0]);
+                    exit(0);
+                }
+            }
+            else
+            {
+                waitpid(pid,&status,WUNTRACED);
+                if (WIFEXITED(status))
+                {
+                    if(WEXITSTATUS(status) != 0)
+                    {
+                    printf("[ last program returned exit code: %d ] ", WEXITSTATUS(status));
+                    }
                 }
             }
         }
+    }
+    else if(check == 1)
+    {
+        kill(pid,SIGCONT);
+        printf("resumed\n:pid:%d:sig:%d\n",pid,SIGCONT);
+        fflush(stdout);
+
+
     }
     else if(check == -1)
     {
@@ -268,8 +342,10 @@ void destroyCommand(char** commandArgv)
     }
 }
 
-
 int main(){
+    signal(SIGINT,handleSIGINT);
+    signal(SIGTSTP,handleSIGTSTP);
+    tcsetpgrp(STDIN_FILENO,getpid());
     char* commandArgv[100];
     welcomeScreen();
     sayPrompt();
@@ -293,6 +369,8 @@ int main(){
                 redirectIn = 0;
                 redirectOut = 0;
                 bg = 0;
+                jobBg = 0;
+                piped = 0;
                 sayPrompt();
                 break;
             }
