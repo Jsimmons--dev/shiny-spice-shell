@@ -5,6 +5,7 @@ written for CISC361 (Operating Systems)
 */
 
 #include <stdio.h>
+#include <config.h>
 #include <string.h>
 #include <stdlib.h>
 #include <unistd.h>
