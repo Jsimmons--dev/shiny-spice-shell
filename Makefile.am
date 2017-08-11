@@ -1,2 +1,2 @@
-Suto UBDIRS = src tests
+SUBDIRS = src
 dist_doc_DATA = README
