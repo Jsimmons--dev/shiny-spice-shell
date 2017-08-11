@@ -15,10 +15,8 @@ written for CISC361 (Operating Systems)
 #include <sys/wait.h>
 #include <sys/stat.h>
 
+#include "constants.h"
 
-int debug = 0;
-#define BUFFER_MAX_LENGTH 50
-#define PATH_MAX_LENGTH 1024
 static const char EXTSTR[] = "exit";
 static char buffer[BUFFER_MAX_LENGTH];
 static char bufferFirstRun[BUFFER_MAX_LENGTH];
