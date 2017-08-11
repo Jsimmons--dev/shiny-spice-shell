@@ -15,6 +15,7 @@ written for CISC361 (Operating Systems)
 #include <sys/wait.h>
 #include <sys/stat.h>
 
+
 int debug = 0;
 #define BUFFER_MAX_LENGTH 50
 #define PATH_MAX_LENGTH 1024
@@ -50,17 +51,9 @@ char* concat(char *s1,char *s2){
 
 void handleSIGINT(int signum)
 {
-    signal(SIGINT,handleSIGINT);
-    printf("Terminated\n:pid:%d:sig:%d\n",pid,SIGINT);
-    fflush(stdout);
-    kill(pid,SIGINT);
-}
-void handleSIGTSTP(int signum)
-{
-    signal(SIGTSTP,handleSIGTSTP);
-    printf("Suspended\n:pid:%d:sig:%d\n",pid,SIGTSTP);
-    fflush(stdout);
-    kill(pid,SIGTSTP);
+    const char msg[] = "\nexiting\n";
+    write(STDERR_FILENO, msg, sizeof(msg)-1);
+    exit(0);
 }
 
 /*
@@ -78,7 +71,14 @@ This may include date, time, PID, or other things in the future.
 */
 void sayPrompt()
 {
-    printf("[ ID:%d:SHELL ]$ ",getpid());
+    char *PS1 = getenv("PS1");
+    if(PS1 == NULL) {
+        printf("%s", "$");
+    }
+    else {
+        printf("%s", PS1);
+    }
+    //printf("[ ID:%d:SHELL ]$ ",getpid());
 }
 
 char* getTextLine(char* buffer)
@@ -86,7 +86,6 @@ char* getTextLine(char* buffer)
     fgets(buffer,BUFFER_MAX_LENGTH,stdin);
     return concat(&userInput,buffer);
 }
-
 
 int checkIORedirect(char* buffer){
     int numberOfRedirectsIn = 0;
@@ -345,9 +344,8 @@ void destroyCommand(char** commandArgv)
 
 int main(){
     signal(SIGINT,handleSIGINT);
-    signal(SIGTSTP,handleSIGTSTP);
-    tcsetpgrp(STDIN_FILENO,getpid());
-    char* commandArgv[100];
+    tcsetpgrp(STDIN_FILENO, getpid());
+    char *commandArgv[100];
     welcomeScreen();
     sayPrompt();
     while(1){
