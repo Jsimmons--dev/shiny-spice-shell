@@ -31,7 +31,6 @@
 *.x86_64
 *.hex
 
-.vscode/
 Makefile
 Makefile.in
 aclocal.m4
