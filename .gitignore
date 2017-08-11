@@ -31,7 +31,19 @@
 *.x86_64
 *.hex
 
-decomp
+Makefile
+Makefile.in
+aclocal.m4
+autom4te.cache/
+compile
+config.h
+config.h1
+config.h.in
+config.h.in~
+config.log
+config.status
+configure
+depcomp
 install-sh
 missing
 src/.deps/
@@ -39,7 +51,7 @@ src/Makefile
 src/Makefile.in
 src/shell
 stamp-h1
-tests-driver
+test-driver
 tests/.deps/
 tests/Makefile
 tests/Makefile.in
