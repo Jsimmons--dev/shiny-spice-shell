@@ -30,3 +30,16 @@
 *.i*86
 *.x86_64
 *.hex
+
+decomp
+install-sh
+missing
+src/.deps/
+src/Makefile
+src/Makefile.in
+src/shell
+stamp-h1
+tests-driver
+tests/.deps/
+tests/Makefile
+tests/Makefile.in
