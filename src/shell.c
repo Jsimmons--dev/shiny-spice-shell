@@ -20,7 +20,6 @@ written for CISC361 (Operating Systems)
 static const char EXTSTR[] = "exit";
 static char buffer[BUFFER_MAX_LENGTH];
 static char bufferFirstRun[BUFFER_MAX_LENGTH];
-static char userInput = '\0';
 static char *commandArgv[100];
 static char *commandArgv2[100];
 static int commandArgc = 0;
@@ -55,15 +54,6 @@ void handleSIGINT(int signum)
 }
 
 /*
-The welcome prompt is populated with information on the current session.
-This may include other information in the future.
-*/
-void welcomeScreen(){
-    printf("\nSHINY-SPICE-SHELL\n");
-    printf("*********************\n");
-}
-
-/*
 This function arranges the string to output as shell prompt and prints it.
 This may include date, time, PID, or other things in the future.
 */
@@ -79,10 +69,10 @@ void sayPrompt()
     //printf("[ ID:%d:SHELL ]$ ",getpid());
 }
 
-char* getTextLine(char* buffer)
+char* getTextLine(char* buffer, char peekCharacter)
 {
     fgets(buffer,BUFFER_MAX_LENGTH,stdin);
-    return concat(&userInput,buffer);
+    return concat(&peekCharacter,buffer);
 }
 
 int checkIORedirect(char* buffer){
@@ -131,8 +121,6 @@ int checkIORedirect(char* buffer){
         return 0;
     }
 }
-
-
 
 /*
 Walks through a copy of the buffer and ads the values to the arguements array.
@@ -344,13 +332,13 @@ int main(){
     signal(SIGINT,handleSIGINT);
     tcsetpgrp(STDIN_FILENO, getpid());
     char *commandArgv[100];
-    welcomeScreen();
+    printf(welcomeMessage);
     sayPrompt();
     while(1){
         destroyCommand(commandArgv);
         //get the first char
-        userInput = getchar();
-        switch(userInput)
+        char peekCharacter = getchar();
+        switch(peekCharacter)
         {
             //if user just typed enter then start over.
             case '\n':
@@ -359,7 +347,7 @@ int main(){
             default:
             {
                 char buffer[BUFFER_MAX_LENGTH];
-                strncpy(buffer,getTextLine(buffer),BUFFER_MAX_LENGTH);
+                strncpy(buffer,getTextLine(buffer, peekCharacter),BUFFER_MAX_LENGTH);
                 int redirects = checkIORedirect(buffer);
                 populateCommand(commandArgv,buffer);
                 handleUserCommands(redirects,commandArgv);

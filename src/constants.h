@@ -2,3 +2,4 @@
 #define PATH_MAX_LENGTH 1024
 
 extern const char globalStr[];
+extern const char welcomeMessage[];
