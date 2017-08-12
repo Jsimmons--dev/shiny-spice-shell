@@ -3,3 +3,4 @@
 
 extern const char globalStr[];
 extern const char welcomeMessage[];
+extern const char promptString[];
